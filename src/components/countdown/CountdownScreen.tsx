@@ -13,7 +13,7 @@ interface CountdownScreenProps {
 }
 
 export default function CountdownScreen({ onUnlockComplete }: CountdownScreenProps) {
-  const { countdown, triggerConfetti, triggerFireworks } = useAnniversary();
+  const { countdown, ensureAudioPlaying, triggerConfetti, triggerFireworks } = useAnniversary();
 
   const [isUnlockingAnim, setIsUnlockingAnim] = useState(false);
   const [unlockFinished, setUnlockFinished] = useState(false);
@@ -46,6 +46,8 @@ export default function CountdownScreen({ onUnlockComplete }: CountdownScreenPro
       initial={{ opacity: 1 }}
       exit={{ opacity: 0, scale: 1.03 }}
       transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
+      onPointerDown={ensureAudioPlaying}
+      onClick={ensureAudioPlaying}
       className="fixed inset-0 z-40 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 overflow-y-auto bg-gradient-to-b from-[#1C120E] via-[#2A181C] to-[#150D0A] text-ivory select-none"
     >
       {/* Ambient Lighting & Glows */}
@@ -123,7 +125,8 @@ export default function CountdownScreen({ onUnlockComplete }: CountdownScreenPro
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.9, delay: 0.2 }}
-          className="relative my-4 flex items-center justify-center"
+          className="relative my-4 flex items-center justify-center cursor-pointer"
+          onClick={ensureAudioPlaying}
         >
           {/* Miniature Ornate Ivory Envelope */}
           <div className="relative w-56 sm:w-64 aspect-[1.5/1] rounded-xl bg-[#FCF5E9] shadow-2xl border border-gold/50 flex flex-col items-center justify-center p-4 overflow-hidden">

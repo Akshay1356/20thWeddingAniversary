@@ -33,6 +33,7 @@ interface AnniversaryContextType {
   togglePlay: () => void;
   toggleMute: () => void;
   setVolume: (v: number) => void;
+  ensureAudioPlaying: () => void;
 
   // Countdown & Unlock state
   countdown: CountdownState;
@@ -132,7 +133,21 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
     calculateCountdown();
   }, [calculateCountdown]);
 
-  // Audio Lifecycle: Play always automatically without asking user to play
+  // Ensure audio is playing seamlessly
+  const ensureAudioPlaying = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused || audio.muted) {
+      audio.muted = false;
+      audio.volume = 0.5;
+      audio
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => {});
+    }
+  }, []);
+
+  // Audio Lifecycle: Play always automatically without asking user
   useEffect(() => {
     const audio = new Audio(ANNIVERSARY_CONFIG.audio.src);
     audio.preload = 'auto';
@@ -150,9 +165,26 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
 
-    // 1. Attempt autoplay immediately
-    const startAudio = () => {
-      if (audio.paused) {
+    // 1. Attempt unmuted autoplay immediately on mount
+    const playAttempt = audio.play();
+    if (playAttempt !== undefined) {
+      playAttempt
+        .then(() => {
+          setIsPlaying(true);
+        })
+        .catch(() => {
+          // If browser Autoplay policy restricts unmuted sound before gesture,
+          // start muted autoplay so the audio engine is actively buffered and running
+          audio.muted = true;
+          audio.play().catch(() => {});
+        });
+    }
+
+    // 2. Unmute and guarantee sound on ANY first interaction anywhere on page (pointerdown, touch, click, scroll)
+    const unlockAndPlaySound = () => {
+      if (audio.paused || audio.muted) {
+        audio.muted = false;
+        audio.volume = 0.5;
         audio
           .play()
           .then(() => setIsPlaying(true))
@@ -160,19 +192,21 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    startAudio();
+    const gestureEvents = [
+      'pointerdown',
+      'touchstart',
+      'touchend',
+      'mousedown',
+      'click',
+      'keydown',
+      'wheel',
+      'scroll',
+    ];
 
-    // 2. Browser policy safety: on very first touch/click anywhere on page, silently ensure playback starts
-    const handleFirstGesture = () => {
-      startAudio();
-      window.removeEventListener('click', handleFirstGesture);
-      window.removeEventListener('touchstart', handleFirstGesture);
-      window.removeEventListener('keydown', handleFirstGesture);
-    };
-
-    window.addEventListener('click', handleFirstGesture, { passive: true });
-    window.addEventListener('touchstart', handleFirstGesture, { passive: true });
-    window.addEventListener('keydown', handleFirstGesture, { passive: true });
+    gestureEvents.forEach((evt) => {
+      window.addEventListener(evt, unlockAndPlaySound, { capture: true, passive: true });
+      document.addEventListener(evt, unlockAndPlaySound, { capture: true, passive: true });
+    });
 
     return () => {
       audio.pause();
@@ -180,9 +214,10 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('play', onPlay);
       audio.removeEventListener('pause', onPause);
-      window.removeEventListener('click', handleFirstGesture);
-      window.removeEventListener('touchstart', handleFirstGesture);
-      window.removeEventListener('keydown', handleFirstGesture);
+      gestureEvents.forEach((evt) => {
+        window.removeEventListener(evt, unlockAndPlaySound, { capture: true });
+        document.removeEventListener(evt, unlockAndPlaySound, { capture: true });
+      });
     };
   }, []);
 
@@ -197,8 +232,8 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
     const handleVisibilityOrFocus = () => {
       if (document.visibilityState === 'visible') {
         syncServerTime();
-        // Ensure audio resumes if device or browser tab was backgrounded
-        if (audioRef.current && audioRef.current.paused && isPlaying) {
+        // Ensure audio resumes if tab was backgrounded
+        if (audioRef.current && audioRef.current.paused) {
           audioRef.current.play().catch(() => {});
         }
       }
@@ -212,7 +247,7 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('visibilitychange', handleVisibilityOrFocus);
       window.removeEventListener('focus', handleVisibilityOrFocus);
     };
-  }, [syncServerTime, calculateCountdown, isPlaying]);
+  }, [syncServerTime, calculateCountdown]);
 
   const triggerConfetti = useCallback(() => {
     const count = 200;
@@ -275,6 +310,7 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
     if (isPlaying) {
       audioRef.current.pause();
     } else {
+      audioRef.current.muted = false;
       audioRef.current.play().catch((e) => console.warn(e));
     }
   };
@@ -304,6 +340,7 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
 
     if (audioRef.current) {
       if (audioRef.current.paused) {
+        audioRef.current.muted = false;
         audioRef.current.volume = volume || 0.6;
         audioRef.current.play().catch((err) => console.warn('Audio play error:', err));
       }
@@ -332,6 +369,7 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
         togglePlay,
         toggleMute,
         setVolume,
+        ensureAudioPlaying,
         countdown,
         isUnlocked: countdown.isUnlocked,
         isSurpriseOpened,
