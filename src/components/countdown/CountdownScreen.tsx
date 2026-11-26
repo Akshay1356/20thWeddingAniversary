@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Lock, Unlock, Sparkles, Heart } from 'lucide-react';
+import { Lock, Unlock, Sparkles, Heart, Music } from 'lucide-react';
 import { useAnniversary } from '@/components/context/AnniversaryContext';
 import WaxSeal from '@/components/ui/WaxSeal';
 import KolamMotif from '@/components/ui/KolamMotif';
@@ -13,7 +13,7 @@ interface CountdownScreenProps {
 }
 
 export default function CountdownScreen({ onUnlockComplete }: CountdownScreenProps) {
-  const { countdown, ensureAudioPlaying, triggerConfetti, triggerFireworks } = useAnniversary();
+  const { countdown, isPlaying, ensureAudioPlaying, triggerConfetti, triggerFireworks } = useAnniversary();
 
   const [isUnlockingAnim, setIsUnlockingAnim] = useState(false);
   const [unlockFinished, setUnlockFinished] = useState(false);
@@ -48,7 +48,7 @@ export default function CountdownScreen({ onUnlockComplete }: CountdownScreenPro
       transition={{ duration: 1.2, ease: [0.25, 1, 0.5, 1] }}
       onPointerDown={ensureAudioPlaying}
       onClick={ensureAudioPlaying}
-      className="fixed inset-0 z-40 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 overflow-y-auto bg-gradient-to-b from-[#1C120E] via-[#2A181C] to-[#150D0A] text-ivory select-none"
+      className="fixed inset-0 z-40 flex flex-col items-center justify-center p-4 sm:p-6 lg:p-8 overflow-y-auto bg-gradient-to-b from-[#1C120E] via-[#2A181C] to-[#150D0A] text-ivory select-none cursor-pointer"
     >
       {/* Ambient Lighting & Glows */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(201,164,92,0.18)_0%,transparent_70%)] pointer-events-none" />
@@ -125,7 +125,7 @@ export default function CountdownScreen({ onUnlockComplete }: CountdownScreenPro
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           transition={{ duration: 0.9, delay: 0.2 }}
-          className="relative my-4 flex items-center justify-center cursor-pointer"
+          className="relative my-4 flex flex-col items-center justify-center cursor-pointer"
           onClick={ensureAudioPlaying}
         >
           {/* Miniature Ornate Ivory Envelope */}
@@ -176,6 +176,19 @@ export default function CountdownScreen({ onUnlockComplete }: CountdownScreenPro
               <Lock className="w-5 h-5 text-burgundy" />
             )}
           </motion.div>
+
+          {/* Gentle reminder to tap anywhere for sound if browser restricted silent sound on first render */}
+          {!isPlaying && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: [0.6, 1, 0.6] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+              className="mt-6 flex items-center justify-center gap-1.5 text-xs sm:text-sm font-serif italic text-gold-light/90"
+            >
+              <Music className="w-3.5 h-3.5 text-gold-light" />
+              <span>Tap anywhere to start the celebration music ♫</span>
+            </motion.div>
+          )}
         </motion.div>
 
         {/* Unlock Status / Announcement Text */}
@@ -183,7 +196,7 @@ export default function CountdownScreen({ onUnlockComplete }: CountdownScreenPro
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.8, delay: 0.3 }}
-          className="mt-6 mb-4"
+          className="mt-4 mb-4"
         >
           {isUnlockingAnim ? (
             <div className="space-y-1">

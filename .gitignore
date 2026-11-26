@@ -36,3 +36,4 @@ Thumbs.db
 
 # Private original assets (keep out of public repos)
 /raw_assets/
+config.bat
