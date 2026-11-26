@@ -1,0 +1,145 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-ivory: #FCF5E9;
+  --color-gold: #C9A45C;
+  --color-burgundy: #722F37;
+  --color-rose: #E8B4B8;
+  --color-darkbrown: #30221C;
+}
+
+html {
+  scroll-behavior: smooth;
+  background-color: #FCF5E9;
+  color: #30221C;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  overflow-x: hidden;
+  background-color: #FCF5E9;
+  min-height: 100vh;
+}
+
+/* Custom Luxury Gold Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #F4ECE0;
+}
+::-webkit-scrollbar-thumb {
+  background: #C9A45C;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #997836;
+}
+
+/* Subtle Kolam Background Pattern */
+.bg-kolam-subtle {
+  background-image: radial-gradient(#C9A45C 0.75px, transparent 0.75px), radial-gradient(#722F37 0.75px, #FCF5E9 0.75px);
+  background-size: 30px 30px;
+  background-position: 0 0, 15px 15px;
+  background-opacity: 0.05;
+}
+
+/* Paper Grain Texture */
+.paper-texture {
+  background-color: #FCF5E9;
+  background-image: radial-gradient(rgba(201, 164, 92, 0.08) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
+/* Gold foil text gradient */
+.text-gold-gradient {
+  background: linear-gradient(135deg, #DFBF7A 0%, #C9A45C 50%, #997836 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Burgundy luxury gradient */
+.text-burgundy-gradient {
+  background: linear-gradient(135deg, #8F3E48 0%, #722F37 60%, #4E1F25 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Gold Border Glow */
+.gold-border-glow {
+  border: 1px solid rgba(201, 164, 92, 0.4);
+  box-shadow: 0 0 15px rgba(201, 164, 92, 0.15);
+}
+
+/* Vintage Photo Vignette */
+.photo-vignette {
+  position: relative;
+}
+.photo-vignette::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 40px rgba(48, 34, 28, 0.25);
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* Delicate Gold Corner Flourish */
+.corner-flourish {
+  position: relative;
+}
+.corner-flourish::before,
+.corner-flourish::after {
+  content: '';
+  position: absolute;
+  width: 20px;
+  height: 20px;
+  border-color: #C9A45C;
+  pointer-events: none;
+}
+.corner-flourish::before {
+  top: 8px;
+  left: 8px;
+  border-top: 1.5px solid #C9A45C;
+  border-left: 1.5px solid #C9A45C;
+}
+.corner-flourish::after {
+  bottom: 8px;
+  right: 8px;
+  border-bottom: 1.5px solid #C9A45C;
+  border-right: 1.5px solid #C9A45C;
+}
+
+/* Shimmer animation */
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-shimmer {
+  animation: shimmer 2.5s infinite;
+}
+
+/* Floating animation */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-8px) rotate(1deg); }
+}
+
+.animate-float {
+  animation: floatSlow 6s ease-in-out infinite;
+}
+
+/* Reduced Motion Support */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
