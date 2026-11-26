@@ -1,18 +1,46 @@
 'use client';
 
-import React, { createContext, useContext, useState, useRef, useEffect, ReactNode } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  ReactNode,
+} from 'react';
 import confetti from 'canvas-confetti';
 import { ANNIVERSARY_CONFIG, PhotoItem } from '@/config/anniversaryData';
+import { UNLOCK_TIMESTAMP } from '@/lib/timeConstants';
+
+export interface CountdownState {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+  totalSeconds: number;
+  isUnlocked: boolean;
+  hasInitialized: boolean;
+}
 
 interface AnniversaryContextType {
-  isSurpriseOpened: boolean;
+  // Audio state
   isPlaying: boolean;
   isMuted: boolean;
+  volume: number;
   audioDuration: number;
   audioCurrentTime: number;
-  openSurprise: () => void;
   togglePlay: () => void;
   toggleMute: () => void;
+  setVolume: (v: number) => void;
+
+  // Countdown & Unlock state
+  countdown: CountdownState;
+  isUnlocked: boolean;
+  isSurpriseOpened: boolean;
+  openSurprise: () => void;
+
+  // Celebrations & Lightbox
   triggerConfetti: () => void;
   triggerFireworks: () => void;
   lightboxIndex: number | null;
@@ -26,31 +54,94 @@ interface AnniversaryContextType {
 const AnniversaryContext = createContext<AnniversaryContextType | undefined>(undefined);
 
 export function AnniversaryProvider({ children }: { children: ReactNode }) {
+  const [countdown, setCountdown] = useState<CountdownState>({
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    totalSeconds: 0,
+    isUnlocked: false,
+    hasInitialized: false,
+  });
+
   const [isSurpriseOpened, setIsSurpriseOpened] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [volume, setVolumeState] = useState(0.5);
   const [audioDuration, setAudioDuration] = useState(0);
   const [audioCurrentTime, setAudioCurrentTime] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const serverOffsetRef = useRef<number>(0);
   const allPhotos = ANNIVERSARY_CONFIG.photos;
 
+  // Compute countdown from synchronized server time
+  const calculateCountdown = useCallback(() => {
+    const now = Date.now() + serverOffsetRef.current;
+    const diffMs = UNLOCK_TIMESTAMP - now;
+
+    if (diffMs <= 0) {
+      setCountdown((prev) => {
+        if (prev.isUnlocked && prev.hasInitialized) return prev;
+        return {
+          days: 0,
+          hours: 0,
+          minutes: 0,
+          seconds: 0,
+          totalSeconds: 0,
+          isUnlocked: true,
+          hasInitialized: true,
+        };
+      });
+      return true;
+    }
+
+    const totalSeconds = Math.max(0, Math.floor(diffMs / 1000));
+    const days = Math.floor(totalSeconds / 86400);
+    const hours = Math.floor((totalSeconds % 86400) / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    setCountdown({
+      days,
+      hours,
+      minutes,
+      seconds,
+      totalSeconds,
+      isUnlocked: false,
+      hasInitialized: true,
+    });
+    return false;
+  }, []);
+
+  // Fetch authoritative server time
+  const syncServerTime = useCallback(async () => {
+    try {
+      const clientFetchStart = Date.now();
+      const res = await fetch('/api/time', { cache: 'no-store' });
+      if (res.ok) {
+        const data = await res.json();
+        const clientFetchEnd = Date.now();
+        const roundTripLatency = (clientFetchEnd - clientFetchStart) / 2;
+        serverOffsetRef.current = data.serverTime + roundTripLatency - clientFetchEnd;
+      }
+    } catch (e) {
+      console.warn('Using device time fallback:', e);
+    }
+    calculateCountdown();
+  }, [calculateCountdown]);
+
+  // Audio Lifecycle: Play always automatically without asking user to play
   useEffect(() => {
-    // Instantiate audio object on client
     const audio = new Audio(ANNIVERSARY_CONFIG.audio.src);
     audio.preload = 'auto';
     audio.loop = true;
+    audio.volume = 0.5; // Initial volume 50%
     audioRef.current = audio;
 
-    const onLoadedMetadata = () => {
-      setAudioDuration(audio.duration || 0);
-    };
-
-    const onTimeUpdate = () => {
-      setAudioCurrentTime(audio.currentTime || 0);
-    };
-
+    const onLoadedMetadata = () => setAudioDuration(audio.duration || 0);
+    const onTimeUpdate = () => setAudioCurrentTime(audio.currentTime || 0);
     const onPlay = () => setIsPlaying(true);
     const onPause = () => setIsPlaying(false);
 
@@ -59,20 +150,74 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
     audio.addEventListener('play', onPlay);
     audio.addEventListener('pause', onPause);
 
+    // 1. Attempt autoplay immediately
+    const startAudio = () => {
+      if (audio.paused) {
+        audio
+          .play()
+          .then(() => setIsPlaying(true))
+          .catch(() => {});
+      }
+    };
+
+    startAudio();
+
+    // 2. Browser policy safety: on very first touch/click anywhere on page, silently ensure playback starts
+    const handleFirstGesture = () => {
+      startAudio();
+      window.removeEventListener('click', handleFirstGesture);
+      window.removeEventListener('touchstart', handleFirstGesture);
+      window.removeEventListener('keydown', handleFirstGesture);
+    };
+
+    window.addEventListener('click', handleFirstGesture, { passive: true });
+    window.addEventListener('touchstart', handleFirstGesture, { passive: true });
+    window.addEventListener('keydown', handleFirstGesture, { passive: true });
+
     return () => {
       audio.pause();
       audio.removeEventListener('loadedmetadata', onLoadedMetadata);
       audio.removeEventListener('timeupdate', onTimeUpdate);
       audio.removeEventListener('play', onPlay);
       audio.removeEventListener('pause', onPause);
+      window.removeEventListener('click', handleFirstGesture);
+      window.removeEventListener('touchstart', handleFirstGesture);
+      window.removeEventListener('keydown', handleFirstGesture);
     };
   }, []);
 
-  const triggerConfetti = () => {
-    // Rich Golden & Burgundy Wedding Confetti
+  // Timer loop & Visibility change handling
+  useEffect(() => {
+    syncServerTime();
+
+    const interval = setInterval(() => {
+      calculateCountdown();
+    }, 1000);
+
+    const handleVisibilityOrFocus = () => {
+      if (document.visibilityState === 'visible') {
+        syncServerTime();
+        // Ensure audio resumes if device or browser tab was backgrounded
+        if (audioRef.current && audioRef.current.paused && isPlaying) {
+          audioRef.current.play().catch(() => {});
+        }
+      }
+    };
+
+    window.addEventListener('visibilitychange', handleVisibilityOrFocus);
+    window.addEventListener('focus', handleVisibilityOrFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('visibilitychange', handleVisibilityOrFocus);
+      window.removeEventListener('focus', handleVisibilityOrFocus);
+    };
+  }, [syncServerTime, calculateCountdown, isPlaying]);
+
+  const triggerConfetti = useCallback(() => {
     const count = 200;
     const defaults = {
-      origin: { y: 0.7 },
+      origin: { y: 0.65 },
       colors: ['#C9A45C', '#E8D3A2', '#722F37', '#8F3E48', '#E8B4B8', '#FFFDF9'],
     };
 
@@ -84,31 +229,14 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
       });
     }
 
-    fire(0.25, {
-      spread: 26,
-      startVelocity: 55,
-    });
-    fire(0.2, {
-      spread: 60,
-    });
-    fire(0.35, {
-      spread: 100,
-      decay: 0.91,
-      scalar: 0.8,
-    });
-    fire(0.1, {
-      spread: 120,
-      startVelocity: 25,
-      decay: 0.92,
-      scalar: 1.2,
-    });
-    fire(0.1, {
-      spread: 120,
-      startVelocity: 45,
-    });
-  };
+    fire(0.25, { spread: 30, startVelocity: 55 });
+    fire(0.2, { spread: 60 });
+    fire(0.35, { spread: 100, decay: 0.91, scalar: 0.8 });
+    fire(0.1, { spread: 120, startVelocity: 25, decay: 0.92, scalar: 1.2 });
+    fire(0.1, { spread: 120, startVelocity: 45 });
+  }, []);
 
-  const triggerFireworks = () => {
+  const triggerFireworks = useCallback(() => {
     const duration = 5 * 1000;
     const animationEnd = Date.now() + duration;
     const defaults = {
@@ -140,24 +268,7 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
         origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 },
       });
     }, 250);
-  };
-
-  const openSurprise = () => {
-    setIsSurpriseOpened(true);
-    triggerConfetti();
-
-    // Start audio playback
-    if (audioRef.current) {
-      audioRef.current.currentTime = 0;
-      audioRef.current.volume = 0.85;
-      audioRef.current
-        .play()
-        .then(() => setIsPlaying(true))
-        .catch((err) => {
-          console.warn('Audio autoplay restriction:', err);
-        });
-    }
-  };
+  }, []);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -175,19 +286,36 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
     setIsMuted(nextMuted);
   };
 
-  const openLightbox = (index: number) => {
-    setLightboxIndex(index);
+  const setVolume = (v: number) => {
+    if (!audioRef.current) return;
+    const clamped = Math.max(0, Math.min(1, v));
+    audioRef.current.volume = clamped;
+    setVolumeState(clamped);
+    if (clamped > 0 && isMuted) {
+      audioRef.current.muted = false;
+      setIsMuted(false);
+    }
   };
 
-  const closeLightbox = () => {
-    setLightboxIndex(null);
+  // Continue playing seamlessly without restarting
+  const openSurprise = () => {
+    setIsSurpriseOpened(true);
+    triggerConfetti();
+
+    if (audioRef.current) {
+      if (audioRef.current.paused) {
+        audioRef.current.volume = volume || 0.6;
+        audioRef.current.play().catch((err) => console.warn('Audio play error:', err));
+      }
+    }
   };
 
+  const openLightbox = (index: number) => setLightboxIndex(index);
+  const closeLightbox = () => setLightboxIndex(null);
   const nextPhoto = () => {
     if (lightboxIndex === null) return;
     setLightboxIndex((lightboxIndex + 1) % allPhotos.length);
   };
-
   const prevPhoto = () => {
     if (lightboxIndex === null) return;
     setLightboxIndex((lightboxIndex - 1 + allPhotos.length) % allPhotos.length);
@@ -196,14 +324,18 @@ export function AnniversaryProvider({ children }: { children: ReactNode }) {
   return (
     <AnniversaryContext.Provider
       value={{
-        isSurpriseOpened,
         isPlaying,
         isMuted,
+        volume,
         audioDuration,
         audioCurrentTime,
-        openSurprise,
         togglePlay,
         toggleMute,
+        setVolume,
+        countdown,
+        isUnlocked: countdown.isUnlocked,
+        isSurpriseOpened,
+        openSurprise,
         triggerConfetti,
         triggerFireworks,
         lightboxIndex,

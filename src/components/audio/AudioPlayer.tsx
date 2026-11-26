@@ -1,26 +1,23 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Volume2, VolumeX, Play, Pause, Music } from 'lucide-react';
+import { Volume2, VolumeX, Play, Pause, Music, Volume1 } from 'lucide-react';
 import { useAnniversary } from '@/components/context/AnniversaryContext';
 import { ANNIVERSARY_CONFIG } from '@/config/anniversaryData';
 
 export default function AudioPlayer() {
-  const { isSurpriseOpened, isPlaying, isMuted, togglePlay, toggleMute } = useAnniversary();
+  const { isPlaying, isMuted, volume, setVolume, togglePlay, toggleMute } = useAnniversary();
   const [isExpanded, setIsExpanded] = useState(false);
-
-  // If surprise is not opened yet, keep the floating player discreet or hidden
-  if (!isSurpriseOpened) return null;
 
   return (
     <aside
       aria-label="Background music controls"
-      className="fixed bottom-6 right-6 z-50 flex items-center gap-2 select-none"
+      className="fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-50 flex items-center gap-2 select-none"
     >
-      {/* Expanded Pill Information */}
+      {/* Expanded Pill with Volume Slider & Details */}
       <div
         className={`overflow-hidden transition-all duration-500 ease-out bg-ivory-light/95 backdrop-blur-md border border-gold/40 shadow-gold-soft rounded-full py-2 px-4 flex items-center gap-3 ${
-          isExpanded ? 'max-w-[280px] opacity-100' : 'max-w-0 px-0 opacity-0 pointer-events-none'
+          isExpanded ? 'max-w-[340px] opacity-100' : 'max-w-0 px-0 opacity-0 pointer-events-none'
         }`}
       >
         <div className="flex items-center gap-2.5 shrink-0">
@@ -28,7 +25,7 @@ export default function AudioPlayer() {
             <Music className="w-3.5 h-3.5" />
           </div>
           <div className="text-left">
-            <p className="text-xs font-serif font-semibold text-burgundy tracking-wide leading-tight">
+            <p className="text-xs font-serif font-semibold text-burgundy tracking-wide leading-tight truncate max-w-[110px]">
               {ANNIVERSARY_CONFIG.audio.title}
             </p>
             <p className="text-[10px] text-darkbrown/60 uppercase tracking-widest">
@@ -37,11 +34,26 @@ export default function AudioPlayer() {
           </div>
         </div>
 
+        {/* Volume Slider */}
+        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+          <Volume1 className="w-3 h-3 text-gold-dark" />
+          <input
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={isMuted ? 0 : volume}
+            onChange={(e) => setVolume(parseFloat(e.target.value))}
+            aria-label="Volume slider"
+            className="w-16 h-1 bg-gold/30 rounded-lg appearance-none cursor-pointer accent-gold"
+          />
+        </div>
+
         {/* Mute button inside expanded view */}
         <button
           onClick={toggleMute}
           aria-label={isMuted ? 'Unmute music' : 'Mute music'}
-          className="p-1.5 rounded-full hover:bg-gold/20 text-burgundy transition-colors shrink-0"
+          className="p-1.5 rounded-full hover:bg-gold/20 text-burgundy transition-colors shrink-0 cursor-pointer"
         >
           {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
         </button>
@@ -54,7 +66,7 @@ export default function AudioPlayer() {
           onMouseEnter={() => setIsExpanded(true)}
           onMouseLeave={() => setIsExpanded(false)}
           aria-label={isPlaying ? 'Pause music' : 'Play music'}
-          className="w-13 h-13 p-3.5 rounded-full bg-gradient-to-br from-[#8F3E48] to-[#4E1F25] text-ivory shadow-burgundy-soft border border-gold/50 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gold/60"
+          className="w-12 h-12 sm:w-13 sm:h-13 p-3.5 rounded-full bg-gradient-to-br from-[#8F3E48] to-[#4E1F25] text-ivory shadow-burgundy-soft border border-gold/50 flex items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-gold/60 cursor-pointer"
         >
           {/* Animated Gold Ring Pulsing while playing */}
           {isPlaying && (
@@ -75,7 +87,7 @@ export default function AudioPlayer() {
         </button>
 
         {/* Quick tooltip */}
-        <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-darkbrown/90 text-ivory text-[11px] px-2.5 py-1 rounded whitespace-nowrap font-serif tracking-wider">
+        <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none bg-darkbrown/90 text-ivory text-[11px] px-2.5 py-1 rounded whitespace-nowrap font-serif tracking-wider hidden sm:block">
           {isPlaying ? 'Pause "Nooru Varusham"' : 'Play "Nooru Varusham"'}
         </div>
       </div>
